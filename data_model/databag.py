@@ -57,4 +57,3 @@ class DataBag(BaseModel):
         if self.frames:
             return self.frames.get_frames_by_robot(robot_id)
         return []
-
