@@ -1,7 +1,7 @@
 """RobotFrame系统"""
 
 from pydantic import BaseModel
-from typing import Any
+from typing import Any, Literal
 
 from .types import tensor1f, tensor2f
 from .scene import TransformOnFrame
@@ -33,6 +33,15 @@ class Trajectory(BaseModel):
     frame_id: str = ""  # 坐标系ID
 
 
+class ObjectAction(BaseModel):
+    """物件操作"""
+
+    name: str  # 物件名称
+    action: Literal["move", "add", "remove", "update"] = "move"  # 操作类型
+    transform: TransformOnFrame | None = None  # 变换信息（move/add/update 时需要）
+    metadata: dict[str, Any] | Any | None = None  # 额外元数据（可以包含 ObjectInfo 等对象）
+
+
 class RobotFrame(BaseModel):
     """机器人帧数据，包含变换后的信息"""
 
@@ -48,8 +57,8 @@ class RobotFrame(BaseModel):
     # 轨迹信息（可选）
     trajectories: dict[str, Trajectory] = {}  # {robot_id: Trajectory}
 
-    # 物件更新（可选，包含变换后的几何、点云、网格等）
-    object_updates: dict[str, TransformOnFrame] = {}  # {object_name: TransformOnFrame}
+    # 物件操作（可选，包含物件的移动、添加、移除等操作）
+    object_actions: list[ObjectAction] = []  # 物件操作列表
 
     # 自定义数据（可选）
     custom_data: dict[str, Any] = {}  # 自定义数据字典

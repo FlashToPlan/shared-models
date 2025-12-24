@@ -13,6 +13,7 @@ from .data_model import (
     Transform,
     TransformOnFrame,
     # RobotFrame系统
+    ObjectAction,
     RobotFrame,
     RobotFrameSequence,
     RobotState,
@@ -46,6 +47,7 @@ __all__ = [
     # RobotFrame系统
     "RobotState",
     "Trajectory",
+    "ObjectAction",
     "RobotFrame",
     "RobotFrameSequence",
     # DataBag系统

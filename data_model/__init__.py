@@ -15,6 +15,7 @@ from .scene import (
 
 # RobotFrame系统
 from .frame import (
+    ObjectAction,
     RobotFrame,
     RobotFrameSequence,
     RobotState,
@@ -47,6 +48,7 @@ __all__ = [
     # RobotFrame系统
     "RobotState",
     "Trajectory",
+    "ObjectAction",
     "RobotFrame",
     "RobotFrameSequence",
     # DataBag系统

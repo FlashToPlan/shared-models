@@ -1,7 +1,6 @@
 """机器人场景系统"""
 
 from pydantic import BaseModel
-import numpy as np
 
 from .types import tensor1f, tensor2f
 
@@ -10,23 +9,45 @@ class Transform(BaseModel):
     """变换定义"""
 
     translation: tensor1f = [0.0, 0.0, 0.0]  # 平移 [x, y, z]
-    rotation: tensor2f = []  # 旋转矩阵 3x3 或 4x4 齐次变换矩阵
+    rotation: tensor1f = [0.0, 0.0, 0.0, 1.0]  # 四元数 [x, y, z, w] (RWT格式)
 
     def to_matrix(self) -> tensor2f:
         """转换为4x4齐次变换矩阵"""
-        if not self.rotation:
-            # 如果没有旋转矩阵，创建单位矩阵
-            rot = np.eye(3).tolist()
+        import numpy as np
+
+        # 从四元数转换为旋转矩阵 (RWT格式: [x, y, z, w])
+        if not self.rotation or len(self.rotation) != 4:
+            rot_matrix = np.eye(3)
         else:
-            rot = np.array(self.rotation)
-            if rot.shape == (3, 3):
-                # 3x3矩阵，扩展为4x4
-                pass
-            elif rot.shape == (4, 4):
-                # 已经是4x4矩阵
-                return rot.tolist()
+            x, y, z, w = self.rotation  # RWT格式: [x, y, z, w]
+            # 归一化四元数
+            norm = np.sqrt(w * w + x * x + y * y + z * z)
+            if norm > 1e-6:
+                w, x, y, z = w / norm, x / norm, y / norm, z / norm
             else:
-                raise ValueError(f"Invalid rotation matrix shape: {rot.shape}")
+                rot_matrix = np.eye(3)
+                w, x, y, z = 1.0, 0.0, 0.0, 0.0
+
+            # 从四元数转换为旋转矩阵
+            rot_matrix = np.array(
+                [
+                    [
+                        1 - 2 * (y * y + z * z),
+                        2 * (x * y - w * z),
+                        2 * (x * z + w * y),
+                    ],
+                    [
+                        2 * (x * y + w * z),
+                        1 - 2 * (x * x + z * z),
+                        2 * (y * z - w * x),
+                    ],
+                    [
+                        2 * (x * z - w * y),
+                        2 * (y * z + w * x),
+                        1 - 2 * (x * x + y * y),
+                    ],
+                ]
+            )
 
         # 构建4x4齐次变换矩阵
         trans = np.array(self.translation)
@@ -34,77 +55,51 @@ class Transform(BaseModel):
             trans = np.array([0.0, 0.0, 0.0])
 
         matrix = np.eye(4)
-        matrix[:3, :3] = rot
+        matrix[:3, :3] = rot_matrix
         matrix[:3, 3] = trans
 
         return matrix.tolist()
 
     def to_quaternion(self) -> tensor1f:
-        """转换为四元数 [x, y, z, w]"""
-        if not self.rotation:
+        """转换为四元数 [x, y, z, w] (RWT格式，直接返回rotation)"""
+        if not self.rotation or len(self.rotation) != 4:
             return [0.0, 0.0, 0.0, 1.0]
-
-        rot = np.array(self.rotation)
-        if rot.shape == (4, 4):
-            rot = rot[:3, :3]
-        elif rot.shape != (3, 3):
-            return [0.0, 0.0, 0.0, 1.0]
-
-        # 从旋转矩阵转换为四元数
-        trace = np.trace(rot)
-        if trace > 0:
-            s = np.sqrt(trace + 1.0) * 2
-            w = 0.25 * s
-            x = (rot[2, 1] - rot[1, 2]) / s
-            y = (rot[0, 2] - rot[2, 0]) / s
-            z = (rot[1, 0] - rot[0, 1]) / s
-        else:
-            if rot[0, 0] > rot[1, 1] and rot[0, 0] > rot[2, 2]:
-                s = np.sqrt(1.0 + rot[0, 0] - rot[1, 1] - rot[2, 2]) * 2
-                w = (rot[2, 1] - rot[1, 2]) / s
-                x = 0.25 * s
-                y = (rot[0, 1] + rot[1, 0]) / s
-                z = (rot[0, 2] + rot[2, 0]) / s
-            elif rot[1, 1] > rot[2, 2]:
-                s = np.sqrt(1.0 + rot[1, 1] - rot[0, 0] - rot[2, 2]) * 2
-                w = (rot[0, 2] - rot[2, 0]) / s
-                x = (rot[0, 1] + rot[1, 0]) / s
-                y = 0.25 * s
-                z = (rot[1, 2] + rot[2, 1]) / s
-            else:
-                s = np.sqrt(1.0 + rot[2, 2] - rot[0, 0] - rot[1, 1]) * 2
-                w = (rot[1, 0] - rot[0, 1]) / s
-                x = (rot[0, 2] + rot[2, 0]) / s
-                y = (rot[1, 2] + rot[2, 1]) / s
-                z = 0.25 * s
-
-        return [float(x), float(y), float(z), float(w)]
+        return list(self.rotation)
 
     def to_euler(self) -> tensor1f:
         """转换为欧拉角 [roll, pitch, yaw] (ZYX顺序)"""
-        if not self.rotation:
+        import numpy as np
+
+        if not self.rotation or len(self.rotation) != 4:
             return [0.0, 0.0, 0.0]
 
-        rot = np.array(self.rotation)
-        if rot.shape == (4, 4):
-            rot = rot[:3, :3]
-        elif rot.shape != (3, 3):
-            return [0.0, 0.0, 0.0]
-
-        # 从旋转矩阵提取欧拉角 (ZYX顺序，即yaw-pitch-roll)
-        sy = np.sqrt(rot[0, 0] * rot[0, 0] + rot[1, 0] * rot[1, 0])
-        singular = sy < 1e-6
-
-        if not singular:
-            x = np.arctan2(rot[2, 1], rot[2, 2])
-            y = np.arctan2(-rot[2, 0], sy)
-            z = np.arctan2(rot[1, 0], rot[0, 0])
+        x, y, z, w = self.rotation  # RWT格式: [x, y, z, w]
+        # 归一化四元数
+        norm = np.sqrt(w * w + x * x + y * y + z * z)
+        if norm > 1e-6:
+            w, x, y, z = w / norm, x / norm, y / norm, z / norm
         else:
-            x = np.arctan2(-rot[1, 2], rot[1, 1])
-            y = np.arctan2(-rot[2, 0], sy)
-            z = 0
+            return [0.0, 0.0, 0.0]
 
-        return [float(x), float(y), float(z)]
+        # 从四元数转换为欧拉角 (ZYX顺序，即yaw-pitch-roll)
+        # roll (x-axis rotation)
+        sinr_cosp = 2 * (w * x + y * z)
+        cosr_cosp = 1 - 2 * (x * x + y * y)
+        roll = np.arctan2(sinr_cosp, cosr_cosp)
+
+        # pitch (y-axis rotation)
+        sinp = 2 * (w * y - z * x)
+        if abs(sinp) >= 1:
+            pitch = np.copysign(np.pi / 2, sinp)  # use 90 degrees if out of range
+        else:
+            pitch = np.arcsin(sinp)
+
+        # yaw (z-axis rotation)
+        siny_cosp = 2 * (w * z + x * y)
+        cosy_cosp = 1 - 2 * (y * y + z * z)
+        yaw = np.arctan2(siny_cosp, cosy_cosp)
+
+        return [float(roll), float(pitch), float(yaw)]
 
 
 class TransformOnFrame(BaseModel):
