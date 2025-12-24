@@ -1,5 +1,5 @@
 def main():
-    print("Hello from shared-models!")
+    print("Hello from flash-models!")
 
 
 if __name__ == "__main__":

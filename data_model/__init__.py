@@ -1,4 +1,4 @@
-"""Shared Models - 统一导出接口"""
+"""Flash Models - 统一导出接口"""
 
 # 基础模型
 from .base import EdgeInfo, SeamInfo, StpInfo

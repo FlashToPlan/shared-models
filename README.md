@@ -1,11 +1,11 @@
-# Shared Models
+# Flash Models
 
 定义所有后端-前端数据模型，提供统一的机器人场景配置和帧数据管理。
 
 ## 文件结构
 
 ```
-shared-models/
+flash-models/
 ├── __init__.py          # 项目根导出接口
 ├── data_model/          # 数据模型模块
 │   ├── __init__.py      # 模块导出接口

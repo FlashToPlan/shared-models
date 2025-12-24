@@ -1,4 +1,4 @@
-"""Shared Models - 项目根导出接口"""
+"""Flash Models - 项目根导出接口"""
 
 from .data_model import (
     # 基础模型
